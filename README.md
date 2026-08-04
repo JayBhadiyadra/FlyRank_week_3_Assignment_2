@@ -192,11 +192,9 @@ curl -X POST http://localhost:8000/reset
 
 ---
 
-## Swagger screenshot placeholder
+## Swagger screenshot
 
-> ![Swagger UI screenshot](docs/swagger-placeholder.png)
->
-> *Replace this placeholder with a screenshot of `http://localhost:8000/docs` after starting the server.*
+![Swagger UI screenshot](docs/swagger-placeholder.png)
 
 Interactive docs are available at:
 
