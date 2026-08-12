@@ -13,8 +13,9 @@ class Settings(BaseSettings):
     )
     app_version: str = "2.0.0"
     api_prefix: str = ""
+    # Local PostgreSQL (no Docker in this assignment — containers come in A3).
     database_url: str = (
-        "postgresql+psycopg://tasks:tasks@localhost:5433/tasks"
+        "postgresql+psycopg://postgres:postgres@localhost:5432/tasks"
     )
 
     model_config = SettingsConfigDict(
@@ -22,7 +23,6 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         env_prefix="APP_",
         case_sensitive=False,
-        # Allow DATABASE_URL without the APP_ prefix (common convention).
         extra="ignore",
     )
 
@@ -30,8 +30,8 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-# Prefer a plain DATABASE_URL env var when present.
 def _apply_database_url_override() -> None:
+    """Prefer a plain DATABASE_URL env var when present."""
     import os
 
     url = os.getenv("DATABASE_URL")

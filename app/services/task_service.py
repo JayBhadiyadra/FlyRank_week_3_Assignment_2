@@ -1,30 +1,16 @@
-"""Task service during Stage 0: PostgreSQL bootstrap + in-memory CRUD.
-
-The database table and first-run seed are created on startup. Request handlers
-still use the in-memory store until later stages switch them to SQL.
-"""
+"""PostgreSQL-backed task service containing all business logic."""
 
 from __future__ import annotations
 
 from typing import Optional
 
 from sqlalchemy import func, text
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.core.exceptions import TaskNotFoundError, ValidationError
 from app.db.session import get_session, init_db
-from app.models.task import Task as DbTask
+from app.models.task import Task
 from app.schemas.task import TaskCreate, TaskUpdate
-
-
-class Task:
-    """Simple in-memory task object used until SQL CRUD is wired up."""
-
-    def __init__(self, id: int, title: str, done: bool = False) -> None:
-        self.id = id
-        self.title = title
-        self.done = done
-
 
 SEED_TASKS: list[tuple[int, str, bool]] = [
     (1, "Buy groceries", False),
@@ -33,14 +19,8 @@ SEED_TASKS: list[tuple[int, str, bool]] = [
 ]
 
 
-def _seed_tasks() -> dict[int, Task]:
-    return {
-        task_id: Task(id=task_id, title=title, done=done)
-        for task_id, title, done in SEED_TASKS
-    }
-
-
 def _align_id_sequence(session: Session) -> None:
+    """Align the tasks id sequence with the current MAX(id)."""
     session.execute(
         text(
             "SELECT setval("
@@ -51,21 +31,23 @@ def _align_id_sequence(session: Session) -> None:
 
 
 def _seed_if_empty(session: Session) -> None:
-    count = session.exec(select(func.count()).select_from(DbTask)).one()
+    """Insert the three example tasks only when the table has no rows."""
+    count = session.exec(select(func.count()).select_from(Task)).one()
     if count:
         return
+
     for task_id, title, done in SEED_TASKS:
-        session.add(DbTask(id=task_id, title=title, done=done))
+        session.add(Task(id=task_id, title=title, done=done))
     session.flush()
     _align_id_sequence(session)
 
 
 class TaskService:
-    """Stage 0 service: DB bootstrap on start, in-memory request handling."""
+    """Manage tasks using a PostgreSQL database.
 
-    def __init__(self) -> None:
-        self._tasks: dict[int, Task] = _seed_tasks()
-        self._next_id: int = max(self._tasks.keys(), default=0) + 1
+    Data survives process restarts. This class stays free of FastAPI / HTTP
+    concerns so route handlers remain thin.
+    """
 
     def bootstrap(self) -> None:
         """Create the schema if needed and seed example tasks once."""
@@ -78,55 +60,147 @@ class TaskService:
         done: Optional[bool] = None,
         search: Optional[str] = None,
     ) -> list[Task]:
-        tasks = list(self._tasks.values())
-        if done is not None:
-            tasks = [task for task in tasks if task.done is done]
-        if search is not None:
-            needle = search.strip().lower()
-            if needle:
-                tasks = [task for task in tasks if needle in task.title.lower()]
-        return sorted(tasks, key=lambda task: task.id)
+        """Return tasks, optionally filtered by status and/or title search.
+
+        Args:
+            done: If provided, keep only tasks matching this completion flag.
+            search: If provided, keep only tasks whose title contains the
+                search text (case-insensitive LIKE).
+
+        Returns:
+            A list of matching tasks sorted by id ascending.
+        """
+        with get_session() as session:
+            statement = select(Task)
+
+            if done is not None:
+                statement = statement.where(Task.done == done)
+
+            if search is not None:
+                needle = search.strip()
+                if needle:
+                    statement = statement.where(
+                        col(Task.title).ilike(f"%{needle}%")
+                    )
+
+            statement = statement.order_by(Task.id)
+            return list(session.exec(statement).all())
 
     def get_task(self, task_id: int) -> Task:
-        task = self._tasks.get(task_id)
-        if task is None:
-            raise TaskNotFoundError(task_id)
-        return task
+        """Fetch a single task by id.
+
+        Args:
+            task_id: Identifier of the task to fetch.
+
+        Returns:
+            The matching task.
+
+        Raises:
+            TaskNotFoundError: If no task exists with the given id.
+        """
+        with get_session() as session:
+            task = session.get(Task, task_id)
+            if task is None:
+                raise TaskNotFoundError(task_id)
+            return task
 
     def create_task(self, payload: TaskCreate) -> Task:
+        """Insert a new task row.
+
+        Args:
+            payload: Validated create payload.
+
+        Returns:
+            The newly created task.
+        """
         title = payload.title.strip()
         if not title:
             raise ValidationError("title cannot be empty")
-        task = Task(id=self._next_id, title=title, done=payload.done)
-        self._tasks[task.id] = task
-        self._next_id += 1
-        return task
+
+        with get_session() as session:
+            task = Task(title=title, done=payload.done)
+            session.add(task)
+            session.flush()
+            session.refresh(task)
+            return task
 
     def update_task(self, task_id: int, payload: TaskUpdate) -> Task:
-        task = self.get_task(task_id)
-        if payload.title is not None:
-            title = payload.title.strip()
-            if not title:
-                raise ValidationError("title cannot be empty")
-            task.title = title
-        if payload.done is not None:
-            task.done = payload.done
-        self._tasks[task_id] = task
-        return task
+        """Update an existing task row.
+
+        Args:
+            task_id: Identifier of the task to update.
+            payload: Validated update payload. Only provided fields are applied.
+
+        Returns:
+            The updated task.
+
+        Raises:
+            TaskNotFoundError: If no task exists with the given id.
+            ValidationError: If a provided title is empty.
+        """
+        with get_session() as session:
+            task = session.get(Task, task_id)
+            if task is None:
+                raise TaskNotFoundError(task_id)
+
+            if payload.title is not None:
+                title = payload.title.strip()
+                if not title:
+                    raise ValidationError("title cannot be empty")
+                task.title = title
+
+            if payload.done is not None:
+                task.done = payload.done
+
+            session.add(task)
+            session.flush()
+            session.refresh(task)
+            return task
 
     def delete_task(self, task_id: int) -> None:
-        if task_id not in self._tasks:
-            raise TaskNotFoundError(task_id)
-        del self._tasks[task_id]
+        """Delete a task row by id.
+
+        Args:
+            task_id: Identifier of the task to delete.
+
+        Raises:
+            TaskNotFoundError: If no task exists with the given id.
+        """
+        with get_session() as session:
+            task = session.get(Task, task_id)
+            if task is None:
+                raise TaskNotFoundError(task_id)
+            session.delete(task)
 
     def get_stats(self) -> dict[str, int]:
-        total = len(self._tasks)
-        done = sum(1 for task in self._tasks.values() if task.done)
-        return {"total": total, "done": done, "pending": total - done}
+        """Compute aggregate task statistics with SQL COUNT.
+
+        Returns:
+            Dictionary with total, done, and pending counts.
+        """
+        with get_session() as session:
+            total = session.exec(select(func.count()).select_from(Task)).one()
+            done = session.exec(
+                select(func.count())
+                .select_from(Task)
+                .where(Task.done.is_(True))
+            ).one()
+            pending = int(total) - int(done)
+            return {
+                "total": int(total),
+                "done": int(done),
+                "pending": pending,
+            }
 
     def reset(self) -> None:
-        self._tasks = _seed_tasks()
-        self._next_id = max(self._tasks.keys(), default=0) + 1
+        """Clear all tasks and restore the three seed examples."""
+        with get_session() as session:
+            session.execute(text("DELETE FROM tasks"))
+            for task_id, title, done in SEED_TASKS:
+                session.add(Task(id=task_id, title=title, done=done))
+            session.flush()
+            _align_id_sequence(session)
 
 
+# Shared singleton used by the API routes.
 task_service = TaskService()

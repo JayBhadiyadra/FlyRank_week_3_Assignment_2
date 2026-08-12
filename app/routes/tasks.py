@@ -40,9 +40,9 @@ def _bad_request(message: str) -> HTTPException:
     status_code=status.HTTP_200_OK,
     summary="List tasks",
     description=(
-        "Return all tasks from in-memory storage. "
+        "Return all tasks from PostgreSQL. "
         "Optionally filter by completion status with `done=true|false` "
-        "and/or search titles with `search=<text>` (case-insensitive)."
+        "and/or search titles with `search=<text>` (case-insensitive SQL LIKE)."
     ),
     responses={
         200: {
@@ -81,7 +81,7 @@ def list_tasks(
     response_model=TaskResponse,
     status_code=status.HTTP_200_OK,
     summary="Get task by ID",
-    description="Retrieve a single task by its integer identifier.",
+    description="Retrieve a single task by its integer identifier from PostgreSQL.",
     responses={
         200: {
             "description": "Task found",
@@ -121,8 +121,9 @@ def get_task(task_id: int) -> TaskResponse:
     status_code=status.HTTP_201_CREATED,
     summary="Create task",
     description=(
-        "Create a new task. `title` is required and must be a non-empty "
-        "string (whitespace-only titles are rejected). `done` defaults to `false`."
+        "Insert a new task into PostgreSQL. `title` is required and must be a "
+        "non-empty string (whitespace-only titles are rejected). "
+        "`done` defaults to `false`."
     ),
     responses={
         201: {
@@ -166,7 +167,7 @@ def create_task(payload: TaskCreate) -> TaskResponse:
     status_code=status.HTTP_200_OK,
     summary="Update task",
     description=(
-        "Update an existing task. Provide `title` and/or `done`. "
+        "Update an existing PostgreSQL task row. Provide `title` and/or `done`. "
         "If `title` is provided it must be a non-empty string."
     ),
     responses={
@@ -220,7 +221,10 @@ def update_task(task_id: int, payload: TaskUpdate) -> TaskResponse:
     "/tasks/{task_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete task",
-    description="Delete a task by its integer identifier. Returns 204 with no body on success.",
+    description=(
+        "Delete a task row from PostgreSQL by its integer identifier. "
+        "Returns 204 with no body on success."
+    ),
     responses={
         204: {"description": "Task deleted"},
         404: {
@@ -248,7 +252,7 @@ def delete_task(task_id: int) -> None:
     status_code=status.HTTP_200_OK,
     summary="Task statistics",
     description=(
-        "Return aggregate counts for all tasks currently stored in memory: "
+        "Return aggregate counts using SQL COUNT(): "
         "`total`, `done`, and `pending`."
     ),
     responses={
@@ -273,7 +277,7 @@ def get_stats() -> StatsResponse:
     status_code=status.HTTP_200_OK,
     summary="Reset tasks",
     description=(
-        "Reset in-memory storage back to the three seed example tasks. "
+        "Delete all rows and restore the three seed example tasks in PostgreSQL. "
         "Useful for demos and automated tests."
     ),
     responses={
