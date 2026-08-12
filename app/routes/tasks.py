@@ -40,7 +40,7 @@ def _bad_request(message: str) -> HTTPException:
     status_code=status.HTTP_200_OK,
     summary="List tasks",
     description=(
-        "Return all tasks from PostgreSQL. "
+        "Return all tasks from SQLite. "
         "Optionally filter by completion status with `done=true|false` "
         "and/or search titles with `search=<text>` (case-insensitive SQL LIKE)."
     ),
@@ -81,7 +81,7 @@ def list_tasks(
     response_model=TaskResponse,
     status_code=status.HTTP_200_OK,
     summary="Get task by ID",
-    description="Retrieve a single task by its integer identifier from PostgreSQL.",
+    description="Retrieve a single task by its integer identifier from SQLite.",
     responses={
         200: {
             "description": "Task found",
@@ -121,7 +121,7 @@ def get_task(task_id: int) -> TaskResponse:
     status_code=status.HTTP_201_CREATED,
     summary="Create task",
     description=(
-        "Insert a new task into PostgreSQL. `title` is required and must be a "
+        "Insert a new task into SQLite. `title` is required and must be a "
         "non-empty string (whitespace-only titles are rejected). "
         "`done` defaults to `false`."
     ),
@@ -167,7 +167,7 @@ def create_task(payload: TaskCreate) -> TaskResponse:
     status_code=status.HTTP_200_OK,
     summary="Update task",
     description=(
-        "Update an existing PostgreSQL task row. Provide `title` and/or `done`. "
+        "Update an existing SQLite task row. Provide `title` and/or `done`. "
         "If `title` is provided it must be a non-empty string."
     ),
     responses={
@@ -222,7 +222,7 @@ def update_task(task_id: int, payload: TaskUpdate) -> TaskResponse:
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete task",
     description=(
-        "Delete a task row from PostgreSQL by its integer identifier. "
+        "Delete a task row from SQLite by its integer identifier. "
         "Returns 204 with no body on success."
     ),
     responses={
@@ -277,7 +277,7 @@ def get_stats() -> StatsResponse:
     status_code=status.HTTP_200_OK,
     summary="Reset tasks",
     description=(
-        "Delete all rows and restore the three seed example tasks in PostgreSQL. "
+        "Delete all rows and restore the three seed example tasks in SQLite. "
         "Useful for demos and automated tests."
     ),
     responses={

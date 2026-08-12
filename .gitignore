@@ -54,6 +54,12 @@ Thumbs.db
 # Logs
 *.log
 
+# SQLite database files (auto-created at runtime)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # Database dumps
 *.sql.gz
 *.dump

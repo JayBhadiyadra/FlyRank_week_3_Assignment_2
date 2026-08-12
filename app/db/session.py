@@ -1,4 +1,4 @@
-"""SQLAlchemy engine and session helpers for PostgreSQL."""
+"""SQLAlchemy engine and session helpers for SQLite."""
 
 from __future__ import annotations
 
@@ -16,10 +16,15 @@ def get_engine():
     """Return a process-wide SQLAlchemy engine (created lazily)."""
     global _engine
     if _engine is None:
+        connect_args = {}
+        if settings.database_url.startswith("sqlite"):
+            # Needed for FastAPI/TestClient using the DB across threads.
+            connect_args["check_same_thread"] = False
+
         _engine = create_engine(
             settings.database_url,
             echo=False,
-            pool_pre_ping=True,
+            connect_args=connect_args,
         )
     return _engine
 
@@ -34,7 +39,6 @@ def reset_engine() -> None:
 
 def init_db() -> None:
     """Create database tables if they do not already exist."""
-    # Import models so SQLModel metadata is populated before create_all.
     from app.models import task as _task  # noqa: F401
 
     SQLModel.metadata.create_all(get_engine())

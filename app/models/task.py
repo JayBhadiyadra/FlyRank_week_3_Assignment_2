@@ -1,10 +1,10 @@
-"""Task SQLModel mapped to the PostgreSQL `tasks` table."""
+"""Task SQLModel mapped to the SQLite `tasks` table."""
 
 from sqlmodel import Field, SQLModel
 
 
 class Task(SQLModel, table=True):
-    """Persistent task row stored in PostgreSQL.
+    """Persistent task row stored in SQLite.
 
     Attributes:
         id: Unique integer primary key (auto-increment).

@@ -1,4 +1,4 @@
-"""PostgreSQL-backed task service containing all business logic."""
+"""SQLite-backed task service containing all business logic."""
 
 from __future__ import annotations
 
@@ -20,14 +20,26 @@ SEED_TASKS: list[tuple[int, str, bool]] = [
 
 
 def _align_id_sequence(session: Session) -> None:
-    """Align the tasks id sequence with the current MAX(id)."""
-    session.execute(
+    """Align SQLite's autoincrement counter with the current MAX(id)."""
+    max_id = session.exec(select(func.max(Task.id))).one()
+    next_seq = int(max_id or 0)
+    has_sequence = session.execute(
         text(
-            "SELECT setval("
-            "pg_get_serial_sequence('tasks', 'id'), "
-            "GREATEST((SELECT COALESCE(MAX(id), 1) FROM tasks), 1))"
+            "SELECT 1 FROM sqlite_master "
+            "WHERE type='table' AND name='sqlite_sequence'"
         )
-    )
+    ).first()
+    if has_sequence is None:
+        return
+    session.execute(text("DELETE FROM sqlite_sequence WHERE name='tasks'"))
+    if next_seq > 0:
+        session.execute(
+            text(
+                "INSERT INTO sqlite_sequence(name, seq) "
+                "VALUES ('tasks', :seq)"
+            ),
+            {"seq": next_seq},
+        )
 
 
 def _seed_if_empty(session: Session) -> None:
@@ -43,7 +55,7 @@ def _seed_if_empty(session: Session) -> None:
 
 
 class TaskService:
-    """Manage tasks using a PostgreSQL database.
+    """Manage tasks using a SQLite database file (`tasks.db`).
 
     Data survives process restarts. This class stays free of FastAPI / HTTP
     concerns so route handlers remain thin.

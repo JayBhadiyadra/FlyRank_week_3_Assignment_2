@@ -1,6 +1,12 @@
 """Application configuration settings."""
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Project root (Assignment_2/) so the SQLite file lands next to the app package.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_SQLITE_PATH = PROJECT_ROOT / "tasks.db"
 
 
 class Settings(BaseSettings):
@@ -8,15 +14,12 @@ class Settings(BaseSettings):
 
     app_title: str = "Task Management API"
     app_description: str = (
-        "A REST API for managing tasks backed by PostgreSQL. "
+        "A REST API for managing tasks backed by SQLite. "
         "Built with FastAPI as part of the FlyRank backend assignment."
     )
     app_version: str = "2.0.0"
     api_prefix: str = ""
-    # Local PostgreSQL (no Docker in this assignment — containers come in A3).
-    database_url: str = (
-        "postgresql+psycopg://postgres:postgres@localhost:5432/tasks"
-    )
+    database_url: str = f"sqlite:///{DEFAULT_SQLITE_PATH.as_posix()}"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,23 +1,24 @@
 # SQL exploration notes (Stage 4)
 
-These queries were run against the local PostgreSQL `tasks` database.
+These queries were run against the local SQLite file `tasks.db`
+(recommended viewer: DB Browser for SQLite).
 
 ## List every task
 
 ```sql
-SELECT * FROM tasks ORDER BY id;
+SELECT * FROM tasks;
 ```
 
 | id | title | done |
 |---:|---|---|
-| 1 | Buy groceries | false |
-| 2 | Write documentation | true |
-| 3 | Review pull request | false |
+| 1 | Buy groceries | 0 |
+| 2 | Write documentation | 1 |
+| 3 | Review pull request | 0 |
 
 ## Show only completed tasks
 
 ```sql
-SELECT * FROM tasks WHERE done = true;
+SELECT * FROM tasks WHERE done = 1;
 ```
 
 ## Count all tasks
@@ -29,28 +30,28 @@ SELECT COUNT(*) FROM tasks;
 ## Mark every task as completed
 
 ```sql
-UPDATE tasks SET done = true;
+UPDATE tasks SET done = 1;
 ```
 
 ## Delete all completed tasks
 
 ```sql
-DELETE FROM tasks WHERE done = true;
+DELETE FROM tasks WHERE done = 1;
 ```
 
 After changing rows directly in the database, `GET /tasks` immediately
-reflects those changes because the API reads from PostgreSQL on every request.
+reflects those changes because the API reads from SQLite on every request.
 
 ## Optional extras used by the API
 
 ```sql
-SELECT * FROM tasks WHERE done = true ORDER BY id;
+SELECT * FROM tasks WHERE done = 1 ORDER BY id;
 
-SELECT * FROM tasks WHERE title ILIKE '%doc%' ORDER BY id;
+SELECT * FROM tasks WHERE title LIKE '%doc%' COLLATE NOCASE ORDER BY id;
 
 SELECT
   COUNT(*) AS total,
-  COUNT(*) FILTER (WHERE done = true) AS done,
-  COUNT(*) FILTER (WHERE done = false) AS pending
+  SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) AS done,
+  SUM(CASE WHEN done = 0 THEN 1 ELSE 0 END) AS pending
 FROM tasks;
 ```
