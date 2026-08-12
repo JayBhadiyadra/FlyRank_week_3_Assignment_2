@@ -1,18 +1,19 @@
-"""Task domain model for in-memory storage."""
+"""Task SQLModel mapped to the PostgreSQL `tasks` table."""
 
-from dataclasses import dataclass
+from sqlmodel import Field, SQLModel
 
 
-@dataclass
-class Task:
-    """Represents a single task stored in memory.
+class Task(SQLModel, table=True):
+    """Persistent task row stored in PostgreSQL.
 
     Attributes:
-        id: Unique integer identifier.
+        id: Unique integer primary key (auto-increment).
         title: Short human-readable task title.
         done: Whether the task has been completed.
     """
 
-    id: int
-    title: str
-    done: bool = False
+    __tablename__ = "tasks"
+
+    id: int | None = Field(default=None, primary_key=True)
+    title: str = Field(nullable=False, max_length=255)
+    done: bool = Field(default=False, nullable=False)

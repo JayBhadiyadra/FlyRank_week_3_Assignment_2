@@ -1,5 +1,7 @@
 """FastAPI application entrypoint."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -7,6 +9,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import settings
 from app.routes import api_router
+from app.services.task_service import task_service
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Create tables and seed example tasks when the app starts."""
+    task_service.bootstrap()
+    yield
+
 
 app = FastAPI(
     title=settings.app_title,
@@ -15,6 +26,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 

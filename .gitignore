@@ -48,5 +48,13 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Local notes / screenshots may be large; keep intentional docs
+# docs/*.png is allowed when added for the README
+
 # Logs
 *.log
+
+# Database dumps
+*.sql.gz
+*.dump
+
