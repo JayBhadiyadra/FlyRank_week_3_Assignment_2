@@ -208,11 +208,7 @@ More queries: [`docs/sql-exploration.md`](docs/sql-exploration.md)
 
 ### Database viewer screenshot
 
-Open `tasks.db` with [DB Browser for SQLite](https://sqlitebrowser.org/) (or any SQLite viewer), then add a screenshot here:
-
 ![SQLite tasks table](docs/database-viewer.png)
-
-*(Add `docs/database-viewer.png` after capturing your local viewer.)*
 
 ---
 
